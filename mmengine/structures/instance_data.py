@@ -7,26 +7,28 @@ import numpy as np
 import torch
 
 from mmengine.device import get_device
+
 from .base_data_element import BaseDataElement
 
 BoolTypeTensor: Union[Any]
 LongTypeTensor: Union[Any]
 
-if get_device() == 'npu':
+if get_device() == "npu":
     BoolTypeTensor = Union[torch.BoolTensor, torch.npu.BoolTensor]
     LongTypeTensor = Union[torch.LongTensor, torch.npu.LongTensor]
-elif get_device() == 'mlu':
+elif get_device() == "mlu":
     BoolTypeTensor = Union[torch.BoolTensor, torch.mlu.BoolTensor]
     LongTypeTensor = Union[torch.LongTensor, torch.mlu.LongTensor]
-elif get_device() == 'musa':
+elif get_device() == "musa":
     BoolTypeTensor = Union[torch.BoolTensor, torch.musa.BoolTensor]
     LongTypeTensor = Union[torch.LongTensor, torch.musa.LongTensor]
 else:
     BoolTypeTensor = Union[torch.BoolTensor, torch.cuda.BoolTensor]
     LongTypeTensor = Union[torch.LongTensor, torch.cuda.LongTensor]
 
-IndexType: Union[Any] = Union[str, slice, int, list, LongTypeTensor,
-                              BoolTypeTensor, np.ndarray]
+IndexType: Union[Any] = Union[
+    str, slice, int, list, LongTypeTensor, BoolTypeTensor, np.ndarray
+]
 
 
 # Modified from
@@ -140,29 +142,32 @@ class InstanceData(BaseDataElement):
         The value must have the attribute of `__len__` and have the same length
         of `InstanceData`.
         """
-        if name in ('_metainfo_fields', '_data_fields'):
+        if name in ("_metainfo_fields", "_data_fields"):
             if not hasattr(self, name):
                 super().__setattr__(name, value)
             else:
-                raise AttributeError(f'{name} has been used as a '
-                                     'private attribute, which is immutable.')
+                raise AttributeError(
+                    f"{name} has been used as a "
+                    "private attribute, which is immutable."
+                )
 
         else:
-            assert isinstance(value,
-                              Sized), 'value must contain `__len__` attribute'
+            assert isinstance(value, Sized), "value must contain `__len__` attribute"
 
             if len(self) > 0:
-                assert len(value) == len(self), 'The length of ' \
-                                                f'values {len(value)} is ' \
-                                                'not consistent with ' \
-                                                'the length of this ' \
-                                                ':obj:`InstanceData` ' \
-                                                f'{len(self)}'
+                assert len(value) == len(self), (
+                    "The length of "
+                    f"values {len(value)} is "
+                    "not consistent with "
+                    "the length of this "
+                    ":obj:`InstanceData` "
+                    f"{len(self)}"
+                )
             super().__setattr__(name, value)
 
     __setitem__ = __setattr__
 
-    def __getitem__(self, item: IndexType) -> 'InstanceData':
+    def __getitem__(self, item: IndexType) -> "InstanceData":
         """
         Args:
             item (str, int, list, :obj:`slice`, :obj:`numpy.ndarray`,
@@ -172,7 +177,7 @@ class InstanceData(BaseDataElement):
         Returns:
             :obj:`InstanceData`: Corresponding values.
         """
-        assert isinstance(item, IndexType.__args__)
+        # assert isinstance(item, IndexType.__args__)
         if isinstance(item, list):
             item = np.array(item)
         if isinstance(item, np.ndarray):
@@ -188,37 +193,36 @@ class InstanceData(BaseDataElement):
 
         if isinstance(item, int):
             if item >= len(self) or item < -len(self):  # type:ignore
-                raise IndexError(f'Index {item} out of range!')
+                raise IndexError(f"Index {item} out of range!")
             else:
                 # keep the dimension
                 item = slice(item, None, len(self))
 
         new_data = self.__class__(metainfo=self.metainfo)
         if isinstance(item, torch.Tensor):
-            assert item.dim() == 1, 'Only support to get the' \
-                                    ' values along the first dimension.'
-            if isinstance(item, BoolTypeTensor.__args__):
-                assert len(item) == len(self), 'The shape of the ' \
-                                               'input(BoolTensor) ' \
-                                               f'{len(item)} ' \
-                                               'does not match the shape ' \
-                                               'of the indexed tensor ' \
-                                               'in results_field ' \
-                                               f'{len(self)} at ' \
-                                               'first dimension.'
+            # assert item.dim() == 1, 'Only support to get the' \
+            #                         ' values along the first dimension.'
+            # if isinstance(item, BoolTypeTensor.__args__):
+            #     assert len(item) == len(self), 'The shape of the ' \
+            #                                    'input(BoolTensor) ' \
+            #                                    f'{len(item)} ' \
+            #                                    'does not match the shape ' \
+            #                                    'of the indexed tensor ' \
+            #                                    'in results_field ' \
+            #                                    f'{len(self)} at ' \
+            #                                    'first dimension.'
 
             for k, v in self.items():
                 if isinstance(v, torch.Tensor):
                     new_data[k] = v[item]
                 elif isinstance(v, np.ndarray):
                     new_data[k] = v[item.cpu().numpy()]
-                elif isinstance(
-                        v, (str, list, tuple)) or (hasattr(v, '__getitem__')
-                                                   and hasattr(v, 'cat')):
+                elif isinstance(v, (str, list, tuple)) or (
+                    hasattr(v, "__getitem__") and hasattr(v, "cat")
+                ):
                     # convert to indexes from BoolTensor
                     if isinstance(item, BoolTypeTensor.__args__):
-                        indexes = torch.nonzero(item).view(
-                            -1).cpu().numpy().tolist()
+                        indexes = torch.nonzero(item).view(-1).cpu().numpy().tolist()
                     else:
                         indexes = item.cpu().numpy().tolist()
                     slice_list = []
@@ -237,9 +241,10 @@ class InstanceData(BaseDataElement):
                     new_data[k] = new_value
                 else:
                     raise ValueError(
-                        f'The type of `{k}` is `{type(v)}`, which has no '
-                        'attribute of `cat`, so it does not '
-                        'support slice with `bool`')
+                        f"The type of `{k}` is `{type(v)}`, which has no "
+                        "attribute of `cat`, so it does not "
+                        "support slice with `bool`"
+                    )
 
         else:
             # item is a slice
@@ -248,7 +253,7 @@ class InstanceData(BaseDataElement):
         return new_data  # type:ignore
 
     @staticmethod
-    def cat(instances_list: List['InstanceData']) -> 'InstanceData':
+    def cat(instances_list: List["InstanceData"]) -> "InstanceData":
         """Concat the instances of all :obj:`InstanceData` in the list.
 
         Note: To ensure that cat returns as expected, make sure that
@@ -261,28 +266,26 @@ class InstanceData(BaseDataElement):
         Returns:
             :obj:`InstanceData`
         """
-        assert all(
-            isinstance(results, InstanceData) for results in instances_list)
+        assert all(isinstance(results, InstanceData) for results in instances_list)
         assert len(instances_list) > 0
         if len(instances_list) == 1:
             return instances_list[0]
 
         # metainfo and data_fields must be exactly the
         # same for each element to avoid exceptions.
-        field_keys_list = [
-            instances.all_keys() for instances in instances_list
-        ]
-        assert len({len(field_keys) for field_keys in field_keys_list}) \
-               == 1 and len(set(itertools.chain(*field_keys_list))) \
-               == len(field_keys_list[0]), 'There are different keys in ' \
-                                           '`instances_list`, which may ' \
-                                           'cause the cat operation ' \
-                                           'to fail. Please make sure all ' \
-                                           'elements in `instances_list` ' \
-                                           'have the exact same key.'
+        field_keys_list = [instances.all_keys() for instances in instances_list]
+        assert len({len(field_keys) for field_keys in field_keys_list}) == 1 and len(
+            set(itertools.chain(*field_keys_list))
+        ) == len(field_keys_list[0]), (
+            "There are different keys in "
+            "`instances_list`, which may "
+            "cause the cat operation "
+            "to fail. Please make sure all "
+            "elements in `instances_list` "
+            "have the exact same key."
+        )
 
-        new_data = instances_list[0].__class__(
-            metainfo=instances_list[0].metainfo)
+        new_data = instances_list[0].__class__(metainfo=instances_list[0].metainfo)
         for k in instances_list[0].keys():
             values = [results[k] for results in instances_list]
             v0 = values[0]
@@ -294,12 +297,13 @@ class InstanceData(BaseDataElement):
                 new_values = v0[:]
                 for v in values[1:]:
                     new_values += v
-            elif hasattr(v0, 'cat'):
+            elif hasattr(v0, "cat"):
                 new_values = v0.cat(values)
             else:
                 raise ValueError(
-                    f'The type of `{k}` is `{type(v0)}` which has no '
-                    'attribute of `cat`')
+                    f"The type of `{k}` is `{type(v0)}` which has no "
+                    "attribute of `cat`"
+                )
             new_data[k] = new_values
         return new_data  # type:ignore
 
